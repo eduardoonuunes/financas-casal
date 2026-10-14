@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-const SENHA_CORRETA = '3244'
+const SENHA_CORRETA = '1999'
 
 export default function Home() {
   const [autenticado, setAutenticado] = useState(false)
@@ -171,7 +171,7 @@ export default function Home() {
     )
   }
 
-  // Filtragem e Cálculos do Mês
+  // Filtragem e Cálculos do Mês Selecionado
   const lancamentosFiltrados = lancamentos.filter(l => l.data && l.data.startsWith(mesFiltro))
 
   const recebidos = lancamentosFiltrados
@@ -184,7 +184,7 @@ export default function Home() {
 
   const saldo = recebidos - gastos
 
-  // Soma Total de Investimentos Acumulados
+  // Soma Total de Investimentos Acumulados (Geral)
   const totalInvestimentos = lancamentos
     .filter(l => l.tipo === 'investimento')
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
@@ -257,26 +257,23 @@ export default function Home() {
         {aba === 'dashboard' && (
           <div className="space-y-6">
             
-            {/* CARDS SUPERIORES: Saldo, Investimentos e Comparativo */}
+            {/* CARDS SUPERIORES */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
               <div className="space-y-4">
-                {/* Card Saldo / Reserva */}
                 <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-sm">
                   <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Saldo do Mês</span>
                   <h2 className="text-2xl font-black mt-1">R$ {saldo.toFixed(2)}</h2>
                   <p className="text-[10px] text-emerald-200 mt-2">Recebidos - Gastos Realizados</p>
                 </div>
 
-                {/* Card Investimentos */}
                 <div className="bg-indigo-900 text-white p-5 rounded-2xl shadow-sm">
                   <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">Investimentos Acumulados</span>
                   <h2 className="text-2xl font-black mt-1">R$ {totalInvestimentos.toFixed(2)}</h2>
-                  <p className="text-[10px] text-indigo-200 mt-2">Valor atual acumulado</p>
+                  <p className="text-[10px] text-indigo-200 mt-2">Valor total guardado</p>
                 </div>
               </div>
 
-              {/* Card Comparativo (Recebidos vs Gastos) */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 md:col-span-2 flex flex-col justify-between">
                 <span className="text-xs font-bold text-slate-600 uppercase mb-3">Comparativo: Recebidos vs Gastos</span>
                 <div className="flex items-end justify-around h-40 pt-4">
@@ -323,7 +320,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* DISTRIBUIÇÃO POR CATEGORIA DE GASTOS */}
+            {/* DISTRIBUIÇÃO POR CATEGORIA */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Distribuição por Categoria</h3>
               {Object.keys(categoriasGastos).length === 0 ? (
@@ -348,7 +345,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* EXTRATO DETALHADO DO MÊS */}
+            {/* EXTRATO DETALHADO */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Lançamentos & Previsões do Mês</h3>
               {lancamentosFiltrados.length === 0 ? (
@@ -381,7 +378,6 @@ export default function Home() {
                             {eGasto ? '-' : '+'} R$ {Number(item.valor).toFixed(2)}
                           </span>
 
-                          {/* Botão de Confirmação de Pagamento */}
                           <button
                             onClick={() => confirmarPagamento(item.id, pagoRealizado)}
                             className={`text-xs px-2 py-1 rounded-lg font-bold transition ${pagoRealizado ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-100 text-amber-800 hover:bg-emerald-100 hover:text-emerald-800'}`}
@@ -420,7 +416,6 @@ export default function Home() {
             <h2 className="text-base font-bold mb-4 text-slate-800">Novo Lançamento / Previsão</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Seleção do Tipo de Lançamento */}
               <div className="flex bg-slate-100 p-1 rounded-xl">
                 <button
                   type="button"
@@ -445,7 +440,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Data do Lançamento */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data do Lançamento</label>
                 <input
@@ -514,7 +508,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Status do Lançamento: Realizado vs Previsão */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status do Lançamento</label>
                 <div className="flex space-x-2">

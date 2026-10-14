@@ -12,7 +12,6 @@ export default function Home() {
   const [lancamentos, setLancamentos] = useState([])
   const [aba, setAba] = useState('dashboard')
 
-  // Filtro de mês atual (YYYY-MM)
   const mesAtualStr = new Date().toISOString().slice(0, 7)
   const dataHojeStr = new Date().toISOString().split('T')[0]
   const [mesFiltro, setMesFiltro] = useState(mesAtualStr)
@@ -22,11 +21,12 @@ export default function Home() {
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [categoria, setCategoria] = useState('Alimentação')
-  const [modalidade, setModalidade] = useState('avista') // 'avista', 'parcelado'
+  const [modalidade, setModalidade] = useState('avista') // 'avista', 'parcelado', 'recorrente_meses'
   const [parcelasTotal, setParcelasTotal] = useState('2')
+  const [mesesRepeticao, setMesesRepeticao] = useState('3')
   const [pagoPor, setPagoPor] = useState('Eduardo')
   const [dataLancamento, setDataLancamento] = useState(dataHojeStr)
-  const [statusPago, setStatusPago] = useState(true) // true = Pago/Recebido, false = Previsto/Pendente
+  const [statusPago, setStatusPago] = useState(true)
 
   useEffect(() => {
     const authSalva = sessionStorage.getItem('app_financas_auth')
@@ -80,11 +80,29 @@ export default function Home() {
           valor: valorParcela,
           tipo,
           categoria,
-          e_recorrente: false,
           e_parcelado: true,
           pago_por: pagoPor,
           data: mesAnoRef,
           pago: statusPago
+        }])
+      }
+    } else if (modalidade === 'recorrente_meses') {
+      const qtdMeses = parseInt(mesesRepeticao) || 3
+
+      for (let i = 0; i < qtdMeses; i++) {
+        const d = new Date(dataBase)
+        d.setMonth(d.getMonth() + i)
+        const mesAnoRef = d.toISOString().split('T')[0]
+
+        await supabase.from('financas').insert([{
+          descricao: `${descricao} (${i + 1}/${qtdMeses})`,
+          valor: numValor,
+          tipo,
+          categoria: tipo === 'investimento' ? 'Investimentos' : categoria,
+          e_parcelado: false,
+          pago_por: pagoPor,
+          data: mesAnoRef,
+          pago: i === 0 ? statusPago : false // O primeiro respeita o status, os seguintes nascem previstos
         }])
       }
     } else {
@@ -93,7 +111,6 @@ export default function Home() {
         valor: numValor,
         tipo,
         categoria: tipo === 'investimento' ? 'Investimentos' : categoria,
-        e_recorrente: false,
         e_parcelado: false,
         pago_por: pagoPor,
         data: dataLancamento,
@@ -171,11 +188,8 @@ export default function Home() {
     )
   }
 
-  // Filtragem estrita pelo mês selecionado no topo
-  const lancamentosFiltrados = lancamentos.filter(l => {
-    if (!l.data) return false
-    return l.data.startsWith(mesFiltro)
-  })
+  // Filtragem do Mês Selecionado
+  const lancamentosFiltrados = lancamentos.filter(l => l.data && l.data.startsWith(mesFiltro))
 
   const recebidos = lancamentosFiltrados
     .filter(l => (l.tipo === 'recebido' || l.tipo === 'receita') && l.pago !== false)
@@ -185,14 +199,29 @@ export default function Home() {
     .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
+  // Totais Previstos (para análise)
+  const gastosPrevistosTotal = lancamentosFiltrados
+    .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa'))
+    .reduce((acc, curr) => acc + Number(curr.valor), 0)
+
   const saldo = recebidos - gastos
 
-  // Soma Total de Investimentos Acumulados (Geral)
   const totalInvestimentos = lancamentos
     .filter(l => l.tipo === 'investimento')
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
   const maxComparativo = Math.max(recebidos, gastos, 1)
+
+  // Cálculo do Mês Anterior para Comparação de Gastos
+  const [anoFiltro, mesFiltroNum] = mesFiltro.split('-').map(Number)
+  const dataAnterior = new Date(anoFiltro, mesFiltroNum - 2, 1)
+  const mesAnteriorStr = `${dataAnterior.getFullYear()}-${String(dataAnterior.getMonth() + 1).padStart(2, '0')}`
+
+  const gastosMesAnterior = lancamentos
+    .filter(l => l.data && l.data.startsWith(mesAnteriorStr) && (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
+    .reduce((acc, curr) => acc + Number(curr.valor), 0)
+
+  const diferencaMesPassado = gastos - gastosMesAnterior
 
   // Gastos agrupados por categoria
   const categoriasGastos = {}
@@ -203,7 +232,7 @@ export default function Home() {
       categoriasGastos[cat] = (categoriasGastos[cat] || 0) + Number(l.valor)
     })
 
-  // Evolução de Gastos Diários no Mês
+  // Evolução Diária de Gastos (com tom avermelhado)
   const gastosPorDia = {}
   lancamentosFiltrados
     .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
@@ -265,9 +294,9 @@ export default function Home() {
               
               <div className="space-y-4">
                 <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-sm">
-                  <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Saldo do Mês</span>
+                  <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Saldo Real do Mês</span>
                   <h2 className="text-2xl font-black mt-1">R$ {saldo.toFixed(2)}</h2>
-                  <p className="text-[10px] text-emerald-200 mt-2">Recebidos - Gastos Realizados</p>
+                  <p className="text-[10px] text-emerald-200 mt-2">Total Previsto de Gastos: R$ {gastosPrevistosTotal.toFixed(2)}</p>
                 </div>
 
                 <div className="bg-indigo-900 text-white p-5 rounded-2xl shadow-sm">
@@ -277,6 +306,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Comparativo Gráfico */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 md:col-span-2 flex flex-col justify-between">
                 <span className="text-xs font-bold text-slate-600 uppercase mb-3">Comparativo: Recebidos vs Gastos</span>
                 <div className="flex items-end justify-around h-40 pt-4">
@@ -302,7 +332,21 @@ export default function Home() {
 
             </div>
 
-            {/* EVOLUÇÃO DIÁRIA DE GASTOS */}
+            {/* CARD DE EVOLUÇÃO EM RELAÇÃO AO MÊS ANTERIOR */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Evolução de Gastos</span>
+                <h3 className="text-sm font-bold text-slate-800 mt-0.5">Comparativo com o Mês Anterior</h3>
+              </div>
+              <div className="text-right">
+                <span className={`text-sm font-black ${diferencaMesPassado <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {diferencaMesPassado <= 0 ? '▼ R$ ' + Math.abs(diferencaMesPassado).toFixed(2) : '▲ R$ ' + diferencaMesPassado.toFixed(2)}
+                </span>
+                <p className="text-[10px] text-slate-400">vs R$ {gastosMesAnterior.toFixed(2)} mês passado</p>
+              </div>
+            </div>
+
+            {/* EVOLUÇÃO DIÁRIA DE GASTOS (Tom Vermelho/Rosa idêntico ao card) */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Evolução Diária de Gastos ({mesFiltro})</h3>
               {Object.keys(gastosPorDia).length === 0 ? (
@@ -311,9 +355,9 @@ export default function Home() {
                 <div className="flex items-end space-x-2 h-28 overflow-x-auto pt-4 pb-1">
                   {Object.entries(gastosPorDia).sort(([a], [b]) => Number(a) - Number(b)).map(([dia, val]) => (
                     <div key={dia} className="flex flex-col items-center flex-shrink-0 w-8 h-full justify-end">
-                      <span className="text-[9px] font-bold text-slate-600 mb-1">{val.toFixed(0)}</span>
+                      <span className="text-[9px] font-bold text-rose-600 mb-1">{val.toFixed(0)}</span>
                       <div 
-                        className="w-full bg-emerald-700 rounded-t-md" 
+                        className="w-full bg-rose-400 rounded-t-md" 
                         style={{ height: `${(val / maiorGastoDia) * 100}%`, minHeight: '6px' }}
                       ></div>
                       <span className="text-[9px] text-slate-400 mt-1">{dia}</span>
@@ -323,7 +367,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* DISTRIBUIÇÃO POR CATEGORIA */}
+            {/* DISTRIBUIÇÃO POR CATEGORIA (Barra com tom avermelhado) */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Distribuição por Categoria</h3>
               {Object.keys(categoriasGastos).length === 0 ? (
@@ -339,7 +383,7 @@ export default function Home() {
                           <span className="text-slate-900">R$ {val.toFixed(2)} ({pct.toFixed(0)}%)</span>
                         </div>
                         <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                          <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${pct}%` }}></div>
+                          <div className="bg-rose-400 h-2.5 rounded-full" style={{ width: `${pct}%` }}></div>
                         </div>
                       </div>
                     )
@@ -377,7 +421,7 @@ export default function Home() {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <span className={`text-xs font-black ${eGasto ? 'text-slate-800' : eInvest ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                          <span className={`text-xs font-black ${eGasto ? 'text-rose-600' : eInvest ? 'text-indigo-600' : 'text-emerald-600'}`}>
                             {eGasto ? '-' : '+'} R$ {Number(item.valor).toFixed(2)}
                           </span>
 
@@ -471,7 +515,7 @@ export default function Home() {
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Descrição</label>
                 <input
                   type="text"
-                  placeholder="Ex: Mercado, Salário, Ações, Fatura..."
+                  placeholder="Ex: Mercado, Salário, Aluguel, Investimento..."
                   required
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
@@ -531,7 +575,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {tipo === 'gasto' && (
+              {tipo !== 'investimento' && (
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Modalidade</label>
                   <select
@@ -540,7 +584,8 @@ export default function Home() {
                     className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none"
                   >
                     <option value="avista">À vista / Único</option>
-                    <option value="parcelado">Parcelado (Cartão / Carnê)</option>
+                    {tipo === 'gasto' && <option value="parcelado">Parcelado (Cartão / Carnê)</option>}
+                    <option value="recorrente_meses">Repetir por Vários Meses (Recorrente)</option>
                   </select>
                 </div>
               )}
@@ -554,6 +599,20 @@ export default function Home() {
                     max="48"
                     value={parcelasTotal}
                     onChange={(e) => setParcelasTotal(e.target.value)}
+                    className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none"
+                  />
+                </div>
+              )}
+
+              {modalidade === 'recorrente_meses' && (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Repetir por Quantos Meses?</label>
+                  <input
+                    type="number"
+                    min="2"
+                    max="24"
+                    value={mesesRepeticao}
+                    onChange={(e) => setMesesRepeticao(e.target.value)}
                     className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none"
                   />
                 </div>

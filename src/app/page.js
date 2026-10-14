@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-const SENHA_CORRETA = '1234'
+const SENHA_CORRETA = '3244'
 
 export default function Home() {
   const [autenticado, setAutenticado] = useState(false)

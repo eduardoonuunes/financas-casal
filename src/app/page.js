@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-const SENHA_CORRETA = '1999'
+const SENHA_CORRETA = '1234'
 
 export default function Home() {
   const [autenticado, setAutenticado] = useState(false)
@@ -171,8 +171,11 @@ export default function Home() {
     )
   }
 
-  // Filtragem e Cálculos do Mês Selecionado
-  const lancamentosFiltrados = lancamentos.filter(l => l.data && l.data.startsWith(mesFiltro))
+  // Filtragem estrita pelo mês selecionado no topo
+  const lancamentosFiltrados = lancamentos.filter(l => {
+    if (!l.data) return false
+    return l.data.startsWith(mesFiltro)
+  })
 
   const recebidos = lancamentosFiltrados
     .filter(l => (l.tipo === 'recebido' || l.tipo === 'receita') && l.pago !== false)
@@ -349,7 +352,7 @@ export default function Home() {
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Lançamentos & Previsões do Mês</h3>
               {lancamentosFiltrados.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">Nenhum lançamento registrado neste mês.</p>
+                <p className="text-xs text-slate-400 text-center py-6">Nenhum lançamento registrado para este mês ({mesFiltro}).</p>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {lancamentosFiltrados.map((item) => {

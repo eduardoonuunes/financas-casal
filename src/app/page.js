@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-const SENHA_CORRETA = '1999'
+const SENHA_CORRETA = '1234'
 
 export default function Home() {
   const [autenticado, setAutenticado] = useState(false)
@@ -102,7 +102,7 @@ export default function Home() {
           e_parcelado: false,
           pago_por: pagoPor,
           data: mesAnoRef,
-          pago: i === 0 ? statusPago : false // O primeiro respeita o status, os seguintes nascem previstos
+          pago: i === 0 ? statusPago : false
         }])
       }
     } else {
@@ -191,28 +191,39 @@ export default function Home() {
   // Filtragem do Mês Selecionado
   const lancamentosFiltrados = lancamentos.filter(l => l.data && l.data.startsWith(mesFiltro))
 
-  const recebidos = lancamentosFiltrados
+  // Realizados (Dinheiro na Mão)
+  const recebidosRealizados = lancamentosFiltrados
     .filter(l => (l.tipo === 'recebido' || l.tipo === 'receita') && l.pago !== false)
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
-  const gastos = lancamentosFiltrados
+  const gastosRealizados = lancamentosFiltrados
     .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
-  // Totais Previstos (para análise)
-  const gastosPrevistosTotal = lancamentosFiltrados
+  const saldoReal = recebidosRealizados - gastosRealizados
+
+  // Totais Previstos / Pendentes
+  const gastosPendentes = lancamentosFiltrados
+    .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago === false)
+    .reduce((acc, curr) => acc + Number(curr.valor), 0)
+
+  const recebidosTotais = lancamentosFiltrados
+    .filter(l => (l.tipo === 'recebido' || l.tipo === 'receita'))
+    .reduce((acc, curr) => acc + Number(curr.valor), 0)
+
+  const gastosTotais = lancamentosFiltrados
     .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa'))
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
-  const saldo = recebidos - gastos
+  const saldoPrevistoFinal = recebidosTotais - gastosTotais
 
   const totalInvestimentos = lancamentos
     .filter(l => l.tipo === 'investimento')
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
-  const maxComparativo = Math.max(recebidos, gastos, 1)
+  const maxComparativo = Math.max(recebidosRealizados, gastosRealizados, 1)
 
-  // Cálculo do Mês Anterior para Comparação de Gastos
+  // Cálculo do Mês Anterior para Comparativo
   const [anoFiltro, mesFiltroNum] = mesFiltro.split('-').map(Number)
   const dataAnterior = new Date(anoFiltro, mesFiltroNum - 2, 1)
   const mesAnteriorStr = `${dataAnterior.getFullYear()}-${String(dataAnterior.getMonth() + 1).padStart(2, '0')}`
@@ -221,7 +232,7 @@ export default function Home() {
     .filter(l => l.data && l.data.startsWith(mesAnteriorStr) && (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
     .reduce((acc, curr) => acc + Number(curr.valor), 0)
 
-  const diferencaMesPassado = gastos - gastosMesAnterior
+  const diferencaMesPassado = gastosRealizados - gastosMesAnterior
 
   // Gastos agrupados por categoria
   const categoriasGastos = {}
@@ -232,7 +243,7 @@ export default function Home() {
       categoriasGastos[cat] = (categoriasGastos[cat] || 0) + Number(l.valor)
     })
 
-  // Evolução Diária de Gastos (com tom avermelhado)
+  // Evolução Diária de Gastos
   const gastosPorDia = {}
   lancamentosFiltrados
     .filter(l => (l.tipo === 'gasto' || l.tipo === 'despesa') && l.pago !== false)
@@ -293,10 +304,23 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
               <div className="space-y-4">
-                <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-sm">
-                  <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Saldo Real do Mês</span>
-                  <h2 className="text-2xl font-black mt-1">R$ {saldo.toFixed(2)}</h2>
-                  <p className="text-[10px] text-emerald-200 mt-2">Total Previsto de Gastos: R$ {gastosPrevistosTotal.toFixed(2)}</p>
+                {/* CARD DE SALDO REAL COM DETALHAMENTO DE PREVISÃO (OPÇÃO 2) */}
+                <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-sm space-y-3">
+                  <div>
+                    <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Saldo Real Atual (Conta)</span>
+                    <h2 className="text-2xl font-black mt-0.5">R$ {saldoReal.toFixed(2)}</h2>
+                  </div>
+
+                  <div className="pt-2 border-t border-emerald-800/80 grid grid-cols-2 gap-2 text-[10px]">
+                    <div>
+                      <span className="text-emerald-300/80 font-medium block">Pendente a Pagar:</span>
+                      <strong className="text-amber-300 text-xs font-bold">R$ {gastosPendentes.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-emerald-300/80 font-medium block">Saldo Previsto Final:</span>
+                      <strong className="text-emerald-100 text-xs font-bold">R$ {saldoPrevistoFinal.toFixed(2)}</strong>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-indigo-900 text-white p-5 rounded-2xl shadow-sm">
@@ -308,22 +332,22 @@ export default function Home() {
 
               {/* Comparativo Gráfico */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 md:col-span-2 flex flex-col justify-between">
-                <span className="text-xs font-bold text-slate-600 uppercase mb-3">Comparativo: Recebidos vs Gastos</span>
+                <span className="text-xs font-bold text-slate-600 uppercase mb-3">Comparativo: Recebidos vs Gastos (Realizados)</span>
                 <div className="flex items-end justify-around h-40 pt-4">
                   <div className="flex flex-col items-center w-1/3 h-full justify-end">
-                    <span className="text-[11px] font-extrabold text-emerald-700 mb-1">R$ {recebidos.toFixed(0)}</span>
+                    <span className="text-[11px] font-extrabold text-emerald-700 mb-1">R$ {recebidosRealizados.toFixed(0)}</span>
                     <div 
                       className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500" 
-                      style={{ height: `${(recebidos / maxComparativo) * 100}%`, minHeight: '8px' }}
+                      style={{ height: `${(recebidosRealizados / maxComparativo) * 100}%`, minHeight: '8px' }}
                     ></div>
                     <span className="text-[11px] font-bold text-slate-500 mt-2">Recebidos</span>
                   </div>
 
                   <div className="flex flex-col items-center w-1/3 h-full justify-end">
-                    <span className="text-[11px] font-extrabold text-rose-600 mb-1">R$ {gastos.toFixed(0)}</span>
+                    <span className="text-[11px] font-extrabold text-rose-600 mb-1">R$ {gastosRealizados.toFixed(0)}</span>
                     <div 
                       className="w-full bg-rose-400 rounded-t-xl transition-all duration-500" 
-                      style={{ height: `${(gastos / maxComparativo) * 100}%`, minHeight: '8px' }}
+                      style={{ height: `${(gastosRealizados / maxComparativo) * 100}%`, minHeight: '8px' }}
                     ></div>
                     <span className="text-[11px] font-bold text-slate-500 mt-2">Gastos</span>
                   </div>
@@ -346,7 +370,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* EVOLUÇÃO DIÁRIA DE GASTOS (Tom Vermelho/Rosa idêntico ao card) */}
+            {/* EVOLUÇÃO DIÁRIA DE GASTOS */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Evolução Diária de Gastos ({mesFiltro})</h3>
               {Object.keys(gastosPorDia).length === 0 ? (
@@ -367,7 +391,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* DISTRIBUIÇÃO POR CATEGORIA (Barra com tom avermelhado) */}
+            {/* DISTRIBUIÇÃO POR CATEGORIA */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Distribuição por Categoria</h3>
               {Object.keys(categoriasGastos).length === 0 ? (
@@ -375,7 +399,7 @@ export default function Home() {
               ) : (
                 <div className="space-y-3.5">
                   {Object.entries(categoriasGastos).map(([cat, val]) => {
-                    const pct = gastos > 0 ? (val / gastos) * 100 : 0
+                    const pct = gastosRealizados > 0 ? (val / gastosRealizados) * 100 : 0
                     return (
                       <div key={cat}>
                         <div className="flex justify-between text-xs font-bold mb-1">

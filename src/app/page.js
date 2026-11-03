@@ -26,6 +26,7 @@ export default function Home() {
   const [mesesRepeticao, setMesesRepeticao] = useState('3')
   const [pagoPor, setPagoPor] = useState('Eduardo')
   const [dataLancamento, setDataLancamento] = useState(dataHojeStr)
+  const [dataVencimento, setDataVencimento] = useState('')
   const [statusPago, setStatusPago] = useState(true)
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function Home() {
 
     const numValor = parseFloat(valor)
     const dataBase = new Date(dataLancamento + 'T00:00:00')
+    const vencimentoFinal = dataVencimento || null
 
     if (tipo === 'gasto' && modalidade === 'parcelado') {
       const qtd = parseInt(parcelasTotal) || 2
@@ -83,6 +85,7 @@ export default function Home() {
           e_parcelado: true,
           pago_por: pagoPor,
           data: mesAnoRef,
+          vencimento: vencimentoFinal,
           pago: statusPago
         }])
       }
@@ -102,6 +105,7 @@ export default function Home() {
           e_parcelado: false,
           pago_por: pagoPor,
           data: mesAnoRef,
+          vencimento: vencimentoFinal,
           pago: i === 0 ? statusPago : false
         }])
       }
@@ -114,12 +118,14 @@ export default function Home() {
         e_parcelado: false,
         pago_por: pagoPor,
         data: dataLancamento,
+        vencimento: vencimentoFinal,
         pago: statusPago
       }])
     }
 
     setDescricao('')
     setValor('')
+    setDataVencimento('')
     carregarLancamentos()
     setAba('dashboard')
   }
@@ -304,7 +310,6 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
               <div className="space-y-4">
-                {/* CARD DE SALDO REAL COM DETALHAMENTO DE PREVISÃO (OPÇÃO 2) */}
                 <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-sm space-y-3">
                   <div>
                     <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Saldo Real Atual (Conta)</span>
@@ -441,6 +446,7 @@ export default function Home() {
                           </div>
                           <span className="text-[10px] text-slate-400">
                             {item.data ? item.data.split('-').reverse().join('/') : ''} • {item.pago_por} • <strong className="text-emerald-700">{item.categoria}</strong>
+                            {item.vencimento && ` • Venc: ${item.vencimento.split('-').reverse().join('/')}`}
                           </span>
                         </div>
 
@@ -511,15 +517,26 @@ export default function Home() {
                 </button>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data do Lançamento</label>
-                <input
-                  type="date"
-                  required
-                  value={dataLancamento}
-                  onChange={(e) => setDataLancamento(e.target.value)}
-                  className="w-full p-3 text-xs bg-slate-50 rounded-xl border border-slate-200 font-bold outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data Competência</label>
+                  <input
+                    type="date"
+                    required
+                    value={dataLancamento}
+                    onChange={(e) => setDataLancamento(e.target.value)}
+                    className="w-full p-3 text-xs bg-slate-50 rounded-xl border border-slate-200 font-bold outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data de Vencimento</label>
+                  <input
+                    type="date"
+                    value={dataVencimento}
+                    onChange={(e) => setDataVencimento(e.target.value)}
+                    className="w-full p-3 text-xs bg-slate-50 rounded-xl border border-slate-200 font-bold outline-none"
+                  />
+                </div>
               </div>
 
               <div>
